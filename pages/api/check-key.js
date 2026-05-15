@@ -1,3 +1,10 @@
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
 export default async function handler(req, res) {
 
   if (req.method !== "POST") {
@@ -18,43 +25,52 @@ export default async function handler(req, res) {
 
   try {
 
-    // ✅ VALIDASI DENGAN ENDPOINT USER INFO
-    const response = await fetch(
-      "https://api.kie.ai/api/v1/user/info",
-      {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`
-        }
-      }
-    )
+    // ✅ CARI API KEY DI DATABASE SUPABASE
+    const { data, error } = await supabase
+      .from("api_keys")
+      .select("*")
+      .eq("api_key", apiKey)
+      .single()
 
-    const data = await response.json()
-
-    // ✅ JIKA STATUS BUKAN 200 → INVALID
-    if (!response.ok || data.code !== 200) {
+    if (error || !data) {
       return res.status(401).json({
         success: false,
-        message: "API Key invalid or expired"
+        message: "API Key tidak ditemukan"
       })
     }
 
-    // ✅ AMBIL CREDIT ASLI DARI API
-    const credit =
-      data?.data?.credit ??
-      data?.data?.balance ??
-      0
+    if (!data.is_active) {
+      return res.status(403).json({
+        success: false,
+        message: "API Key tidak aktif"
+      })
+    }
+
+    const now = new Date()
+    const expired = new Date(data.expired_at)
+
+    if (expired < now) {
+      return res.status(403).json({
+        success: false,
+        message: "API Key kedaluwarsa"
+      })
+    }
+
+    // ✅ CREDIT ASLI DARI DATABASE
+    // Jika kamu belum punya kolom credit,
+    // tambahkan nanti, sementara default 50
+    const credit = data.credit ?? 50
 
     return res.status(200).json({
       success: true,
       credit: credit
     })
 
-  } catch (error) {
+  } catch (err) {
 
     return res.status(500).json({
       success: false,
-      message: "Unable to connect to Kie API"
+      message: "Server error"
     })
   }
 }
