@@ -1,10 +1,12 @@
 import { validateApiKey } from '../secure-test'
 
 export default async function handler(req, res) {
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  // ✅ Validasi API key Kreaverse
   const apiKey = req.headers['x-api-key']
   const check = await validateApiKey(apiKey)
 
@@ -12,10 +14,11 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: check.error })
   }
 
+  // ✅ Ambil taskId dari URL
   const { taskId } = req.query
 
   if (!taskId) {
-    return res.status(400).json({ error: 'taskId required' })
+    return res.status(400).json({ error: 'taskId required in query' })
   }
 
   try {
