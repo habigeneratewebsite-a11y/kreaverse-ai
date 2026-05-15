@@ -2,33 +2,39 @@ import { useState, useEffect } from "react"
 
 export default function Dashboard() {
 
+  // ================= API STATE =================
   const [apiKey, setApiKey] = useState("")
   const [connected, setConnected] = useState(false)
   const [credit, setCredit] = useState(null)
 
+  // ================= FORM STATE =================
   const [file, setFile] = useState(null)
-  const [uploadProgress, setUploadProgress] = useState(0)
-
   const [prompt, setPrompt] = useState("")
   const [style, setStyle] = useState("")
   const [title, setTitle] = useState("")
   const [model, setModel] = useState("V5_5")
-  const [vocalGender, setVocalGender] = useState("m")
-
   const [customMode, setCustomMode] = useState(true)
   const [instrumental, setInstrumental] = useState(false)
+  const [vocalGender, setVocalGender] = useState("m")
   const [negativeTags, setNegativeTags] = useState("")
   const [styleWeight, setStyleWeight] = useState(0.5)
   const [weirdness, setWeirdness] = useState(0.5)
   const [audioWeight, setAudioWeight] = useState(0.5)
 
+  // ================= GENERATE STATE =================
+  const [taskId, setTaskId] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [audioUrl, setAudioUrl] = useState(null)
+
+  // ================= UI STATE =================
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [loading, setLoading] = useState(false)
   const [popup, setPopup] = useState(null)
   const [popupType, setPopupType] = useState("info")
-
   const [showModelPopup, setShowModelPopup] = useState(false)
   const [showGenderPopup, setShowGenderPopup] = useState(false)
 
+  // ================= ANIMATION =================
   useEffect(() => {
     const style = document.createElement("style")
     style.innerHTML = `
@@ -54,6 +60,7 @@ export default function Dashboard() {
     setTimeout(()=>setPopup(null),3000)
   }
 
+  // ================= CHECK API =================
   async function confirmApiKey(){
     if(!apiKey) return toast("Masukkan API Key","error")
 
@@ -69,47 +76,119 @@ export default function Dashboard() {
       setConnected(true)
       setCredit(data.credit)
       toast("API Key Terhubung ✅","success")
-    }else{
+    } else {
       setConnected(false)
       toast("API Key Salah ❌","error")
     }
   }
 
-  function handleFileSelect(e){
-    setFile(e.target.files[0])
-    setUploadProgress(0)
+  // ================= UPLOAD =================
+  async function uploadFileWithProgress(){
+    return new Promise((resolve,reject)=>{
+      const xhr = new XMLHttpRequest()
+      const formData = new FormData()
+      formData.append("file",file)
+
+      xhr.open("POST","/api/upload",true)
+      xhr.setRequestHeader("x-api-key",apiKey)
+
+      xhr.upload.onprogress = (event)=>{
+        if(event.lengthComputable){
+          const percent = Math.round((event.loaded/event.total)*100)
+          setUploadProgress(percent)
+        }
+      }
+
+      xhr.onload = ()=>{
+        if(xhr.status===200){
+          resolve(JSON.parse(xhr.response))
+        } else {
+          reject("Upload gagal")
+        }
+      }
+
+      xhr.send(formData)
+    })
   }
 
-  async function uploadOnly(){
-    if(!file) return toast("Pilih file dulu","error")
+  // ================= GENERATE =================
+  async function generateCover(){
+
     if(!connected) return toast("Konfirmasi API Key dulu","error")
+    if(!file) return toast("Pilih file audio","error")
 
-    const xhr = new XMLHttpRequest()
-    const formData = new FormData()
-    formData.append("file",file)
+    setLoading(true)
+    setUploadProgress(0)
 
-    xhr.open("POST","/api/upload",true)
-    xhr.setRequestHeader("x-api-key",apiKey)
+    try{
 
-    xhr.upload.onprogress = (event)=>{
-      if(event.lengthComputable){
-        const percent = Math.round((event.loaded/event.total)*100)
-        setUploadProgress(percent)
-      }
+      const uploadData = await uploadFileWithProgress()
+
+      const sunoRes = await fetch("/api/suno/cover",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key":apiKey
+        },
+        body:JSON.stringify({
+          uploadUrl:uploadData.fileUrl,
+          prompt,
+          style,
+          title,
+          customMode,
+          instrumental,
+          model,
+          negativeTags,
+          vocalGender,
+          styleWeight,
+          weirdnessConstraint:weirdness,
+          audioWeight,
+          callBackUrl:"https://webhook.site/test123"
+        })
+      })
+
+      const sunoData = await sunoRes.json()
+
+      setTaskId(sunoData?.data?.taskId)
+      setStatus("PENDING")
+
+    }catch(err){
+      toast("Generate gagal ❌","error")
     }
 
-    xhr.onload = ()=>{
-      if(xhr.status===200){
-        toast("Upload Berhasil ✅","success")
-      }else{
-        toast("Upload Gagal ❌","error")
-      }
-    }
-
-    xhr.send(formData)
+    setLoading(false)
   }
 
-  const modelLabel = model==="V5_5"?"Kreaverse AI V5.5":model.replace("_",".")
+  // ================= REALTIME POLLING =================
+  useEffect(()=>{
+    if(!taskId) return
+
+    const interval = setInterval(async()=>{
+      const res = await fetch(`/api/suno/status?taskId=${taskId}`,{
+        headers:{ "x-api-key":apiKey }
+      })
+
+      const data = await res.json()
+      const currentStatus = data?.data?.status
+
+      setStatus(currentStatus)
+
+      if(currentStatus==="SUCCESS"){
+        const audio = data?.data?.response?.sunoData?.[0]?.audioUrl
+        setAudioUrl(audio)
+        clearInterval(interval)
+      }
+
+    },5000)
+
+    return ()=>clearInterval(interval)
+
+  },[taskId])
+
+  const modelLabel = model==="V5_5"
+    ? "Kreaverse AI V5.5"
+    : model.replace("_",".")
+
   const genderLabel = vocalGender==="m"?"Male":"Female"
 
   return (
@@ -133,10 +212,10 @@ export default function Dashboard() {
 
         {/* FILE */}
         <label>Upload Audio File</label>
-        <input type="file" accept="audio/*" onChange={handleFileSelect} style={inputStyle}/>
-        <button style={buttonStyleSecondary} onClick={uploadOnly}>
-          Konfirmasi Upload
-        </button>
+        <input type="file" accept="audio/*"
+          onChange={e=>setFile(e.target.files[0])}
+          style={inputStyle}
+        />
 
         {uploadProgress>0 && (
           <div style={progressOuter}>
@@ -148,13 +227,15 @@ export default function Dashboard() {
         <label>Lyrics / Prompt</label>
         <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} style={inputStyle}/>
 
+        {/* STYLE */}
         <label>Style</label>
         <input value={style} onChange={e=>setStyle(e.target.value)} style={inputStyle}/>
 
+        {/* TITLE */}
         <label>Title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={inputStyle}/>
 
-        {/* MODEL POPUP */}
+        {/* MODEL */}
         <label>Model</label>
         <div style={modelBox} onClick={()=>setShowModelPopup(true)}>
           {modelLabel}
@@ -162,44 +243,52 @@ export default function Dashboard() {
         </div>
 
         {showModelPopup && (
-          <div style={modalOverlay} onClick={()=>setShowModelPopup(false)}>
-            <div style={modalBox} onClick={e=>e.stopPropagation()}>
-              {["V5_5","V5","V4_5PLUS","V4_5","V4"].map(m=>(
-                <div key={m} style={modalItem}
-                  onClick={()=>{setModel(m);setShowModelPopup(false)}}
-                >
-                  {m==="V5_5"?"Kreaverse AI V5.5":m.replace("_",".")}
-                </div>
-              ))}
-            </div>
-          </div>
+          <Modal onClose={()=>setShowModelPopup(false)}>
+            {["V5_5","V5","V4_5PLUS","V4_5","V4"].map(m=>(
+              <div key={m} style={modalItem}
+                onClick={()=>{setModel(m);setShowModelPopup(false)}}
+              >
+                {m==="V5_5"?"Kreaverse AI V5.5":m.replace("_",".")}
+              </div>
+            ))}
+          </Modal>
         )}
 
-        {/* VOCAL POPUP */}
+        {/* VOCAL GENDER */}
         <label>Vocal Gender</label>
         <div style={modelBox} onClick={()=>setShowGenderPopup(true)}>
           {genderLabel}
         </div>
 
         {showGenderPopup && (
-          <div style={modalOverlay} onClick={()=>setShowGenderPopup(false)}>
-            <div style={modalBox} onClick={e=>e.stopPropagation()}>
-              <div style={modalItem} onClick={()=>{setVocalGender("m");setShowGenderPopup(false)}}>Male</div>
-              <div style={modalItem} onClick={()=>{setVocalGender("f");setShowGenderPopup(false)}}>Female</div>
-            </div>
-          </div>
+          <Modal onClose={()=>setShowGenderPopup(false)}>
+            <div style={modalItem} onClick={()=>{setVocalGender("m");setShowGenderPopup(false)}}>Male</div>
+            <div style={modalItem} onClick={()=>{setVocalGender("f");setShowGenderPopup(false)}}>Female</div>
+          </Modal>
         )}
 
+        {/* NEGATIVE TAGS */}
         <label>Negative Tags</label>
         <input value={negativeTags} onChange={e=>setNegativeTags(e.target.value)} style={inputStyle}/>
 
+        {/* SLIDERS */}
         <Slider label="Style Weight" value={styleWeight} setValue={setStyleWeight}/>
         <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
         <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
 
-        <button style={buttonStyle} onClick={()=>toast("Generate clicked ✅","success")}>
-          Generate Cover
+        <button style={buttonStyle} onClick={generateCover}>
+          {loading?<Spinner/>:"Generate Cover"}
         </button>
+
+        {status && (
+          <div style={statusBox}>
+            Status: {status}
+          </div>
+        )}
+
+        {audioUrl && (
+          <audio controls src={audioUrl} style={{width:"100%",marginTop:15}}/>
+        )}
 
       </div>
 
@@ -215,6 +304,16 @@ export default function Dashboard() {
           {popup}
         </div>
       )}
+    </div>
+  )
+}
+
+function Modal({children,onClose}){
+  return(
+    <div style={modalOverlay} onClick={onClose}>
+      <div style={modalBox} onClick={e=>e.stopPropagation()}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -237,12 +336,25 @@ function Slider({label,value,setValue}){
   )
 }
 
+function Spinner(){
+  return(
+    <div style={{
+      width:20,
+      height:20,
+      border:"3px solid white",
+      borderTop:"3px solid transparent",
+      borderRadius:"50%",
+      animation:"spin 1s linear infinite",
+      margin:"0 auto"
+    }}/>
+  )
+}
+
 /* STYLES */
 const pageStyle={minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1e293b)",display:"flex",justifyContent:"center",alignItems:"center"}
 const cardStyle={width:500,background:"#1e293b",padding:25,borderRadius:15,color:"white"}
 const inputStyle={width:"100%",padding:10,marginBottom:12,borderRadius:6,border:"1px solid #334155",background:"#0f172a",color:"white"}
 const buttonStyle={width:"100%",padding:12,borderRadius:6,border:"none",background:"#3b82f6",color:"white"}
-const buttonStyleSecondary={width:"100%",padding:12,borderRadius:6,border:"none",background:"#475569",color:"white",marginBottom:10}
 const connectedBox={marginTop:10,padding:10,background:"#065f46",borderRadius:6}
 const modelBox={padding:10,borderRadius:8,background:"#0f172a",border:"1px solid #334155",marginBottom:15,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}
 const badgeStyle={marginLeft:10,padding:"2px 8px",fontSize:10,background:"linear-gradient(90deg,#00f5ff,#3b82f6)",borderRadius:20,animation:"glow 1.5s ease-in-out infinite alternate"}
@@ -251,3 +363,4 @@ const modalBox={background:"#1e293b",padding:20,borderRadius:12,width:300}
 const modalItem={padding:12,borderBottom:"1px solid #334155",cursor:"pointer"}
 const progressOuter={width:"100%",height:8,background:"#334155",borderRadius:10,marginBottom:15}
 const progressInner={height:8,background:"#3b82f6",borderRadius:10}
+const statusBox={marginTop:15,padding:10,background:"#334155",borderRadius:6}
