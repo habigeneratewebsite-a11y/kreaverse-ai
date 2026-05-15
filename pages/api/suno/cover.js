@@ -1,51 +1,115 @@
-import { validateApiKey } from '../secure-test'
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      success: false,
+      message: "Method not allowed"
+    })
   }
 
-  // ✅ Validasi API key Kreaverse
-  const apiKey = req.headers['x-api-key']
-  const check = await validateApiKey(apiKey)
+  const apiKey = req.headers["x-api-key"]
 
-  if (check.error) {
-    return res.status(401).json({ error: check.error })
+  if (!apiKey) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing API key"
+    })
   }
 
-  const { uploadUrl, prompt, callBackUrl } = req.body
+  const {
+    uploadUrl,
+    prompt,
+    style,
+    title,
+    customMode,
+    instrumental,
+    model,
+    negativeTags,
+    vocalGender,
+    styleWeight,
+    weirdnessConstraint,
+    audioWeight,
+    callBackUrl
+  } = req.body
 
-  if (!uploadUrl || !prompt || !callBackUrl) {
+  // ✅ VALIDASI WAJIB SESUAI DOKUMENTASI
+  if (!uploadUrl) {
     return res.status(400).json({
-      error: 'uploadUrl, prompt, and callBackUrl are required'
+      success: false,
+      message: "uploadUrl required"
+    })
+  }
+
+  if (!prompt && customMode === false) {
+    return res.status(400).json({
+      success: false,
+      message: "prompt required when customMode is false"
+    })
+  }
+
+  if (!model) {
+    return res.status(400).json({
+      success: false,
+      message: "model required"
+    })
+  }
+
+  if (!callBackUrl) {
+    return res.status(400).json({
+      success: false,
+      message: "callBackUrl required"
     })
   }
 
   try {
-    const response = await fetch('https://api.kie.ai/api/v1/generate/upload-cover', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.KIE_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        uploadUrl: uploadUrl,
-        prompt: prompt,
-        customMode: false,
-        instrumental: false,
-        model: "V4",
-        callBackUrl: callBackUrl
-      })
-    })
+
+    const response = await fetch(
+      "https://api.kie.ai/api/v1/generate/upload-cover",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.KIE_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          uploadUrl,
+          prompt,
+          style,
+          title,
+          customMode,
+          instrumental,
+          model,
+          negativeTags,
+          vocalGender,
+          styleWeight,
+          weirdnessConstraint,
+          audioWeight,
+          callBackUrl
+        })
+      }
+    )
 
     const data = await response.json()
 
-    return res.status(200).json(data)
+    if (!response.ok || data.code !== 200) {
+      return res.status(400).json({
+        success: false,
+        message: data.msg || "Suno Cover Failed",
+        errorCode: data.code
+      })
+    }
 
-  } catch (err) {
+    return res.status(200).json({
+      success: true,
+      taskId: data.data.taskId
+    })
+
+  } catch (error) {
+
     return res.status(500).json({
-      error: 'Suno cover request failed',
-      detail: err.message
+      success: false,
+      message: "Suno Cover API Error",
+      detail: error.message
     })
   }
 }
