@@ -19,10 +19,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch('https://api.kie.ai/api/v1/suno/upload-and-cover-audio', {
+    const response = await fetch('https://api.kie.ai/suno-api/upload-and-cover-audio', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.KIE_API_KEY}`,
+        'x-api-key': process.env.KIE_API_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
