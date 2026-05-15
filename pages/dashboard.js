@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function Dashboard() {
 
@@ -17,10 +17,23 @@ export default function Dashboard() {
   const [audioWeight, setAudioWeight] = useState(0.5)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    const styleTag = document.createElement('style')
+    styleTag.innerHTML = `
+      @keyframes glow {
+        from { box-shadow: 0 0 5px #00f5ff; }
+        to { box-shadow: 0 0 15px #3b82f6; }
+      }
+      @keyframes fadeIn {
+        from { opacity:0; transform:translateY(20px); }
+        to { opacity:1; transform:translateY(0); }
+      }
+    `
+    document.head.appendChild(styleTag)
+  }, [])
+
   async function generateCover() {
-
     if (!file) return alert("Select audio file")
-
     setLoading(true)
 
     const formData = new FormData()
@@ -34,7 +47,7 @@ export default function Dashboard() {
 
     const uploadData = await uploadRes.json()
 
-    const sunoRes = await fetch('/api/suno/cover', {
+    await fetch('/api/suno/cover', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,16 +70,17 @@ export default function Dashboard() {
       })
     })
 
-    await sunoRes.json()
     setLoading(false)
     alert("Task Created ✅")
   }
 
   return (
     <div style={pageStyle}>
-      <div style={cardStyle}>
+      <div style={{...cardStyle, animation:'fadeIn 0.8s ease'}}>
 
-        <h2>Kreaverse AI – Suno Pro</h2>
+        <h2 style={{marginBottom:20}}>
+          Kreaverse AI – Suno Pro
+        </h2>
 
         <input placeholder="API Key"
           value={apiKey}
@@ -98,16 +112,27 @@ export default function Dashboard() {
           style={inputStyle}
         />
 
-        <select value={model}
-          onChange={e=>setModel(e.target.value)}
-          style={inputStyle}
-        >
-          <option value="V5_5">V5_5 (Latest)</option>
-          <option value="V5">V5</option>
-          <option value="V4_5PLUS">V4_5PLUS</option>
-          <option value="V4_5">V4_5</option>
-          <option value="V4">V4</option>
-        </select>
+        {/* MODEL CUSTOM DROPDOWN */}
+        <div style={{marginBottom:15}}>
+          <label>Model</label>
+          <div style={dropdownBox}>
+            Kreaverse AI {model === 'V5_5' ? 'V5.5' : model}
+            {model === 'V5_5' && (
+              <span style={badgeStyle}>Terbaru</span>
+            )}
+          </div>
+
+          <div style={dropdownList}>
+            {["V5_5","V5","V4_5PLUS","V4_5","V4"].map(m => (
+              <div key={m}
+                style={dropdownItem}
+                onClick={()=>setModel(m)}
+              >
+                {m === "V5_5" ? "Kreaverse AI V5.5" : m}
+              </div>
+            ))}
+          </div>
+        </div>
 
         <select value={vocalGender}
           onChange={e=>setVocalGender(e.target.value)}
@@ -127,7 +152,23 @@ export default function Dashboard() {
         <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
         <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
 
-        <button onClick={generateCover} style={buttonStyle}>
+        <label style={toggleStyle}>
+          <input type="checkbox"
+            checked={customMode}
+            onChange={()=>setCustomMode(!customMode)}
+          /> Custom Mode
+        </label>
+
+        <label style={toggleStyle}>
+          <input type="checkbox"
+            checked={instrumental}
+            onChange={()=>setInstrumental(!instrumental)}
+          /> Instrumental
+        </label>
+
+        <button onClick={generateCover}
+          style={buttonStyle}
+        >
           {loading ? "Generating..." : "Generate Cover"}
         </button>
 
@@ -165,7 +206,8 @@ const cardStyle = {
   background: '#1e293b',
   padding: 25,
   borderRadius: 15,
-  color: 'white'
+  color: 'white',
+  boxShadow:'0 10px 30px rgba(0,0,0,0.5)'
 }
 
 const inputStyle = {
@@ -178,11 +220,50 @@ const inputStyle = {
   color: 'white'
 }
 
+const dropdownBox = {
+  padding: 10,
+  borderRadius: 8,
+  background: '#0f172a',
+  border: '1px solid #334155',
+  marginTop:5,
+  marginBottom:5,
+  fontWeight:'bold',
+  display:'flex',
+  alignItems:'center'
+}
+
+const dropdownList = {
+  background:'#1e293b',
+  borderRadius:8,
+  overflow:'hidden'
+}
+
+const dropdownItem = {
+  padding:10,
+  cursor:'pointer',
+  borderBottom:'1px solid #334155'
+}
+
+const badgeStyle = {
+  marginLeft:10,
+  padding:'2px 8px',
+  fontSize:10,
+  background:'linear-gradient(90deg,#00f5ff,#3b82f6)',
+  borderRadius:20,
+  animation:'glow 1.5s ease-in-out infinite alternate'
+}
+
+const toggleStyle = {
+  display:'block',
+  marginBottom:10
+}
+
 const buttonStyle = {
-  width: '100%',
-  padding: 12,
-  borderRadius: 6,
-  border: 'none',
-  background: '#3b82f6',
-  color: 'white'
+  width:'100%',
+  padding:12,
+  borderRadius:6,
+  border:'none',
+  background:'#3b82f6',
+  color:'white',
+  cursor:'pointer'
 }
