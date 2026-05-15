@@ -1,10 +1,10 @@
 import { supabase } from '../../lib/supabase'
 
 export default async function handler(req, res) {
-  const apiKey = req.headers['x-api-key']
+  const apiKey = req.query.key
 
   if (!apiKey) {
-    return res.status(401).json({ error: 'API key required' })
+    return res.status(401).json({ error: 'API key required (use ?key=...)' })
   }
 
   const { data, error } = await supabase
