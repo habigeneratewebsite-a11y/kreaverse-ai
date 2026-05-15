@@ -1,5 +1,5 @@
 
-import { validateApiKey } from '../../secure-test'
+import { validateApiKey } from '../secure-test'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
