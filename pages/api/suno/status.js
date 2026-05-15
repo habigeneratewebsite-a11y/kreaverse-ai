@@ -14,16 +14,15 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: check.error })
   }
 
-  // ✅ Ambil taskId dari URL
   const { taskId } = req.query
 
   if (!taskId) {
-    return res.status(400).json({ error: 'taskId required in query' })
+    return res.status(400).json({ error: 'taskId required' })
   }
 
   try {
     const response = await fetch(
-      `https://api.kie.ai/api/v1/suno/get-music-details?taskId=${taskId}`,
+      `https://api.kie.ai/api/v1/generate/record-info?taskId=${taskId}`,
       {
         method: 'GET',
         headers: {
