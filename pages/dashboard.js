@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 
 export default function Dashboard() {
 
-  // ================= API KEY =================
+  // ================= API =================
   const [apiKey, setApiKey] = useState("")
   const [connected, setConnected] = useState(false)
   const [credit, setCredit] = useState(null)
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [popupType, setPopupType] = useState("info")
   const [showModelPopup, setShowModelPopup] = useState(false)
   const [showGenderPopup, setShowGenderPopup] = useState(false)
+  const [loadingGenerate, setLoadingGenerate] = useState(false)
 
   useEffect(() => {
     const style = document.createElement("style")
@@ -55,7 +56,7 @@ export default function Dashboard() {
     setTimeout(()=>setPopup(null),3000)
   }
 
-  // ✅ VALIDASI API KEY TANPA FALSE ERROR
+  // ✅ REAL VALIDATION
   async function confirmApiKey(){
 
     if(!apiKey){
@@ -66,7 +67,6 @@ export default function Dashboard() {
     setCheckingKey(true)
 
     try{
-
       const res = await fetch("/api/check-key",{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
@@ -79,37 +79,30 @@ export default function Dashboard() {
         setConnected(true)
         setCredit(data.credit)
         toast("API Key Terhubung ✅","success")
-      }else{
+      } else {
         setConnected(false)
         toast(data.message || "API Key Salah ❌","error")
       }
 
-    }catch(error){
-      toast("Tidak dapat terhubung ke server","error")
+    }catch(e){
+      toast("Server tidak dapat dihubungi","error")
     }
 
     setCheckingKey(false)
   }
 
-  // ✅ UPLOAD MANUAL BUTTON
-  async function uploadOnly(){
+  // ✅ UPLOAD CONFIRM BUTTON
+  async function confirmUpload(){
 
-    if(!connected){
-      toast("Konfirmasi API Key dulu","error")
-      return
-    }
-
-    if(!file){
-      toast("Pilih file audio dulu","error")
-      return
-    }
+    if(!connected) return toast("Konfirmasi API Key dulu","error")
+    if(!file) return toast("Pilih file audio dulu","error")
 
     const xhr = new XMLHttpRequest()
     const formData = new FormData()
     formData.append("file", file)
 
     xhr.open("POST","/api/upload",true)
-    xhr.setRequestHeader("x-api-key", apiKey)
+    xhr.setRequestHeader("x-api-key",apiKey)
 
     xhr.upload.onprogress = (event)=>{
       if(event.lengthComputable){
@@ -121,7 +114,7 @@ export default function Dashboard() {
     xhr.onload = ()=>{
       if(xhr.status===200){
         toast("Upload Berhasil ✅","success")
-      }else{
+      } else {
         toast("Upload Gagal ❌","error")
       }
     }
@@ -131,6 +124,55 @@ export default function Dashboard() {
     }
 
     xhr.send(formData)
+  }
+
+  // ✅ GENERATE CONFIRM BUTTON
+  async function confirmGenerate(){
+    if(!connected) return toast("Konfirmasi API Key dulu","error")
+    if(!file) return toast("Upload file dulu","error")
+    if(!prompt) return toast("Masukkan prompt","error")
+
+    setLoadingGenerate(true)
+
+    try{
+      const uploadRes = await fetch("/api/upload",{
+        method:"POST",
+        headers:{ "x-api-key":apiKey },
+        body:new FormData().append("file",file)
+      })
+
+      const uploadData = await uploadRes.json()
+
+      await fetch("/api/suno/cover",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key":apiKey
+        },
+        body:JSON.stringify({
+          uploadUrl:uploadData.fileUrl,
+          prompt,
+          style,
+          title,
+          customMode,
+          instrumental,
+          model,
+          vocalGender,
+          negativeTags,
+          styleWeight,
+          weirdnessConstraint:weirdness,
+          audioWeight,
+          callBackUrl:"https://webhook.site/test123"
+        })
+      })
+
+      toast("Generate Task Created ✅","success")
+
+    }catch(e){
+      toast("Generate Gagal ❌","error")
+    }
+
+    setLoadingGenerate(false)
   }
 
   const modelLabel = model==="V5_5"
@@ -166,8 +208,7 @@ export default function Dashboard() {
           onChange={e=>setFile(e.target.files[0])}
           style={inputStyle}
         />
-
-        <button style={buttonStyleSecondary} onClick={uploadOnly}>
+        <button style={buttonStyleSecondary} onClick={confirmUpload}>
           Konfirmasi Upload
         </button>
 
@@ -177,7 +218,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* LYRICS */}
+        {/* PROMPT */}
         <label>Lyrics / Prompt</label>
         <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} style={inputStyle}/>
 
@@ -241,6 +282,10 @@ export default function Dashboard() {
         <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
         <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
 
+        <button style={buttonStyle} onClick={confirmGenerate}>
+          {loadingGenerate ? <Spinner/> : "Generate Cover"}
+        </button>
+
       </div>
 
       {popup && (
@@ -259,8 +304,7 @@ export default function Dashboard() {
   )
 }
 
-/* COMPONENTS */
-
+/* MODAL */
 function Modal({children,onClose}){
   return(
     <div style={modalOverlay} onClick={onClose}>
@@ -304,7 +348,6 @@ function Spinner(){
 }
 
 /* STYLES */
-
 const pageStyle={minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1e293b)",display:"flex",justifyContent:"center",alignItems:"center"}
 const cardStyle={width:500,background:"#1e293b",padding:25,borderRadius:15,color:"white"}
 const inputStyle={width:"100%",padding:10,marginBottom:12,borderRadius:6,border:"1px solid #334155",background:"#0f172a",color:"white"}
