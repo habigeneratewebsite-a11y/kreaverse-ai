@@ -1,26 +1,30 @@
 import { useState } from 'react'
 
 export default function Dashboard() {
+
   const [apiKey, setApiKey] = useState('')
   const [file, setFile] = useState(null)
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState('')
   const [title, setTitle] = useState('')
-  const [customMode, setCustomMode] = useState(false)
+  const [model, setModel] = useState('V5_5')
+  const [customMode, setCustomMode] = useState(true)
   const [instrumental, setInstrumental] = useState(false)
-  const [model, setModel] = useState('V4')
-  const [taskId, setTaskId] = useState('')
-  const [status, setStatus] = useState(null)
+  const [vocalGender, setVocalGender] = useState('m')
+  const [negativeTags, setNegativeTags] = useState('')
+  const [styleWeight, setStyleWeight] = useState(0.5)
+  const [weirdness, setWeirdness] = useState(0.5)
+  const [audioWeight, setAudioWeight] = useState(0.5)
   const [loading, setLoading] = useState(false)
 
   async function generateCover() {
+
     if (!file) return alert("Select audio file")
 
     setLoading(true)
 
     const formData = new FormData()
     formData.append("file", file)
-    formData.append("prompt", prompt)
 
     const uploadRes = await fetch('/api/upload', {
       method: 'POST',
@@ -37,35 +41,32 @@ export default function Dashboard() {
         'x-api-key': apiKey
       },
       body: JSON.stringify({
-        uploadUrl: uploadData.uploadUrl,
+        uploadUrl: uploadData.fileUrl,
         prompt,
         style,
         title,
         customMode,
         instrumental,
         model,
+        vocalGender,
+        negativeTags,
+        styleWeight,
+        weirdnessConstraint: weirdness,
+        audioWeight,
         callBackUrl: "https://webhook.site/test123"
       })
     })
 
-    const data = await sunoRes.json()
-    setTaskId(data?.data?.taskId || '')
+    await sunoRes.json()
     setLoading(false)
-  }
-
-  async function checkStatus() {
-    const res = await fetch(`/api/suno/status?taskId=${taskId}`, {
-      headers: { 'x-api-key': apiKey }
-    })
-
-    const data = await res.json()
-    setStatus(data)
+    alert("Task Created ✅")
   }
 
   return (
     <div style={pageStyle}>
       <div style={cardStyle}>
-        <h2 style={{marginBottom:20}}>Kreaverse AI – Suno Cover</h2>
+
+        <h2>Kreaverse AI – Suno Pro</h2>
 
         <input placeholder="API Key"
           value={apiKey}
@@ -85,70 +86,68 @@ export default function Dashboard() {
           style={inputStyle}
         />
 
-        {customMode && (
-          <>
-            <input placeholder="Style"
-              value={style}
-              onChange={e=>setStyle(e.target.value)}
-              style={inputStyle}
-            />
-            <input placeholder="Title"
-              value={title}
-              onChange={e=>setTitle(e.target.value)}
-              style={inputStyle}
-            />
-          </>
-        )}
+        <input placeholder="Style"
+          value={style}
+          onChange={e=>setStyle(e.target.value)}
+          style={inputStyle}
+        />
+
+        <input placeholder="Title"
+          value={title}
+          onChange={e=>setTitle(e.target.value)}
+          style={inputStyle}
+        />
 
         <select value={model}
           onChange={e=>setModel(e.target.value)}
           style={inputStyle}
         >
-          <option value="V4">V4</option>
-          <option value="V4_5">V4_5</option>
-          <option value="V4_5PLUS">V4_5PLUS</option>
-          <option value="V4_5ALL">V4_5ALL</option>
+          <option value="V5_5">V5_5 (Latest)</option>
           <option value="V5">V5</option>
-          <option value="V5_5">V5_5</option>
+          <option value="V4_5PLUS">V4_5PLUS</option>
+          <option value="V4_5">V4_5</option>
+          <option value="V4">V4</option>
         </select>
 
-        <label style={toggleStyle}>
-          <input type="checkbox"
-            checked={customMode}
-            onChange={()=>setCustomMode(!customMode)}
-          /> Custom Mode
-        </label>
-
-        <label style={toggleStyle}>
-          <input type="checkbox"
-            checked={instrumental}
-            onChange={()=>setInstrumental(!instrumental)}
-          /> Instrumental
-        </label>
-
-        <button onClick={generateCover}
-          style={buttonStyle}
+        <select value={vocalGender}
+          onChange={e=>setVocalGender(e.target.value)}
+          style={inputStyle}
         >
-          {loading ? "Processing..." : "Generate Cover"}
+          <option value="m">Male</option>
+          <option value="f">Female</option>
+        </select>
+
+        <input placeholder="Negative Tags"
+          value={negativeTags}
+          onChange={e=>setNegativeTags(e.target.value)}
+          style={inputStyle}
+        />
+
+        <Slider label="Style Weight" value={styleWeight} setValue={setStyleWeight}/>
+        <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
+        <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
+
+        <button onClick={generateCover} style={buttonStyle}>
+          {loading ? "Generating..." : "Generate Cover"}
         </button>
 
-        {taskId && (
-          <>
-            <p style={{marginTop:15}}>Task ID: {taskId}</p>
-            <button onClick={checkStatus} style={buttonStyle}>
-              Check Status
-            </button>
-          </>
-        )}
-
-        {status && (
-          <div style={resultBox}>
-            <pre style={{fontSize:12}}>
-              {JSON.stringify(status, null, 2)}
-            </pre>
-          </div>
-        )}
       </div>
+    </div>
+  )
+}
+
+function Slider({label,value,setValue}) {
+  return (
+    <div style={{marginBottom:15}}>
+      <label>{label}: {value}</label>
+      <input type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={value}
+        onChange={e=>setValue(parseFloat(e.target.value))}
+        style={{width:'100%'}}
+      />
     </div>
   )
 }
@@ -162,11 +161,10 @@ const pageStyle = {
 }
 
 const cardStyle = {
-  width: 450,
+  width: 500,
   background: '#1e293b',
   padding: 25,
   borderRadius: 15,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
   color: 'white'
 }
 
@@ -180,26 +178,11 @@ const inputStyle = {
   color: 'white'
 }
 
-const toggleStyle = {
-  display: 'block',
-  marginBottom: 10
-}
-
 const buttonStyle = {
   width: '100%',
   padding: 12,
   borderRadius: 6,
   border: 'none',
   background: '#3b82f6',
-  color: 'white',
-  cursor: 'pointer'
-}
-
-const resultBox = {
-  marginTop: 20,
-  background: '#0f172a',
-  padding: 10,
-  borderRadius: 8,
-  maxHeight: 200,
-  overflow: 'auto'
+  color: 'white'
 }
