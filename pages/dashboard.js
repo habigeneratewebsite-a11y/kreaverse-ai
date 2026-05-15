@@ -5,12 +5,8 @@ export default function Dashboard() {
   const [apiKey, setApiKey] = useState('')
   const [connected, setConnected] = useState(false)
   const [credit, setCredit] = useState(null)
-  const [popup, setPopup] = useState(null)
-  const [popupType, setPopupType] = useState("info")
 
   const [file, setFile] = useState(null)
-  const [uploadProgress, setUploadProgress] = useState(0)
-
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState('')
   const [title, setTitle] = useState('')
@@ -23,7 +19,10 @@ export default function Dashboard() {
   const [weirdness, setWeirdness] = useState(0.5)
   const [audioWeight, setAudioWeight] = useState(0.5)
 
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [popup, setPopup] = useState(null)
+  const [popupType, setPopupType] = useState("info")
   const [showModelPopup, setShowModelPopup] = useState(false)
 
   useEffect(() => {
@@ -73,9 +72,7 @@ export default function Dashboard() {
   }
 
   async function uploadFileWithProgress() {
-
     return new Promise((resolve, reject) => {
-
       const xhr = new XMLHttpRequest()
       const formData = new FormData()
       formData.append("file", file)
@@ -132,8 +129,8 @@ export default function Dashboard() {
           customMode,
           instrumental,
           model,
-          vocalGender,
           negativeTags,
+          vocalGender,
           styleWeight,
           weirdnessConstraint:weirdness,
           audioWeight,
@@ -187,8 +184,16 @@ export default function Dashboard() {
         )}
 
         {/* PROMPT */}
-        <label>Prompt</label>
+        <label>Lyrics / Prompt</label>
         <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} style={inputStyle}/>
+
+        {/* STYLE */}
+        <label>Style</label>
+        <input value={style} onChange={e=>setStyle(e.target.value)} style={inputStyle}/>
+
+        {/* TITLE */}
+        <label>Title</label>
+        <input value={title} onChange={e=>setTitle(e.target.value)} style={inputStyle}/>
 
         {/* MODEL */}
         <label>Model</label>
@@ -214,7 +219,21 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* SLIDER */}
+        {/* NEGATIVE TAGS */}
+        <label>Negative Tags</label>
+        <input value={negativeTags} onChange={e=>setNegativeTags(e.target.value)} style={inputStyle}/>
+
+        {/* VOCAL GENDER */}
+        <label>Vocal Gender</label>
+        <select value={vocalGender}
+          onChange={e=>setVocalGender(e.target.value)}
+          style={inputStyle}
+        >
+          <option value="m">Male</option>
+          <option value="f">Female</option>
+        </select>
+
+        {/* SLIDERS */}
         <Slider label="Style Weight" value={styleWeight} setValue={setStyleWeight}/>
         <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
         <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
