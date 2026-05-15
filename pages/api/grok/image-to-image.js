@@ -27,8 +27,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "grok-2-image",
-        prompt: prompt,
-        size: "1024x1024"
+        prompt: prompt
       })
     })
 
@@ -37,9 +36,9 @@ export default async function handler(req, res) {
     return res.status(200).json(data)
 
   } catch (err) {
-    return res.status(500).json({ 
-      error: 'Grok request failed', 
-      detail: err.message 
+    return res.status(500).json({
+      error: 'Grok request failed',
+      detail: err.message
     })
   }
 }
