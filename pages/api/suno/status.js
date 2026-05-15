@@ -1,44 +1,79 @@
-import { validateApiKey } from '../secure-test'
-
 export default async function handler(req, res) {
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method !== "GET") {
+    return res.status(405).json({
+      success: false,
+      message: "Method not allowed"
+    })
   }
 
-  // ✅ Validasi API key Kreaverse
-  const apiKey = req.headers['x-api-key']
-  const check = await validateApiKey(apiKey)
+  const apiKey = req.headers["x-api-key"]
 
-  if (check.error) {
-    return res.status(401).json({ error: check.error })
+  if (!apiKey) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing API key"
+    })
   }
 
-  const { taskId } = req.query
+  const { taskId, type } = req.query
 
   if (!taskId) {
-    return res.status(400).json({ error: 'taskId required' })
+    return res.status(400).json({
+      success: false,
+      message: "taskId required"
+    })
   }
 
   try {
-    const response = await fetch(
-      `https://api.kie.ai/api/v1/generate/record-info?taskId=${taskId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${process.env.KIE_API_KEY}`
-        }
+
+    // ✅ Pilih endpoint sesuai jenis task
+    let endpoint
+
+    if (type === "cover") {
+      endpoint = `https://api.kie.ai/api/v1/suno/cover/record-info?taskId=${taskId}`
+    } else {
+      // Default: Music Generation / Upload Cover (record-info)
+      endpoint = `https://api.kie.ai/api/v1/generate/record-info?taskId=${taskId}`
+    }
+
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${process.env.KIE_API_KEY}`
       }
-    )
+    })
 
     const data = await response.json()
 
-    return res.status(200).json(data)
+    if (!response.ok || data.code !== 200) {
+      return res.status(400).json({
+        success: false,
+        message: data.msg || "Status check failed",
+        errorCode: data.code
+      })
+    }
 
-  } catch (err) {
+    // ✅ FORMAT OUTPUT CLEAN
+    return res.status(200).json({
+      success: true,
+      taskId: data.data.taskId,
+      status: data.data.status || null,
+      operationType: data.data.operationType || null,
+      type: data.data.type || null,
+      errorCode: data.data.errorCode || null,
+      errorMessage: data.data.errorMessage || null,
+      tracks: data.data.response?.sunoData || null,
+      coverImages: data.data.response?.images || null,
+      raw: data.data
+    })
+
+  } catch (error) {
+
     return res.status(500).json({
-      error: 'Status check failed',
-      detail: err.message
+      success: false,
+      message: "Status API Error",
+      detail: error.message
     })
   }
 }
