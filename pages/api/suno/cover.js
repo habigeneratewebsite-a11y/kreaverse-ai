@@ -5,7 +5,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // ✅ Validasi API key Kreaverse
   const apiKey = req.headers['x-api-key']
   const check = await validateApiKey(apiKey)
 
@@ -20,8 +19,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ✅ Endpoint KIE AI yang benar
-    const response = await fetch('https://api.kie.ai/suno-api/upload-and-cover-audio', {
+    const response = await fetch('https://api.kie.ai/api/v1/suno/upload-and-cover-audio', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.KIE_API_KEY}`,
