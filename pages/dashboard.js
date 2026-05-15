@@ -11,9 +11,10 @@ export default function Dashboard() {
   const [style, setStyle] = useState('')
   const [title, setTitle] = useState('')
   const [model, setModel] = useState('V5_5')
+  const [vocalGender, setVocalGender] = useState('m')
+
   const [customMode, setCustomMode] = useState(true)
   const [instrumental, setInstrumental] = useState(false)
-  const [vocalGender, setVocalGender] = useState('m')
   const [negativeTags, setNegativeTags] = useState('')
   const [styleWeight, setStyleWeight] = useState(0.5)
   const [weirdness, setWeirdness] = useState(0.5)
@@ -23,7 +24,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [popup, setPopup] = useState(null)
   const [popupType, setPopupType] = useState("info")
+
   const [showModelPopup, setShowModelPopup] = useState(false)
+  const [showGenderPopup, setShowGenderPopup] = useState(false)
 
   useEffect(() => {
     const styleTag = document.createElement('style')
@@ -129,8 +132,8 @@ export default function Dashboard() {
           customMode,
           instrumental,
           model,
-          negativeTags,
           vocalGender,
+          negativeTags,
           styleWeight,
           weirdnessConstraint:weirdness,
           audioWeight,
@@ -151,13 +154,14 @@ export default function Dashboard() {
     ? "Kreaverse AI V5.5"
     : model.replace("_",".")
 
+  const genderLabel = vocalGender === "m" ? "Male" : "Female"
+
   return (
     <div style={pageStyle}>
       <div style={{...cardStyle,animation:'fadeIn 0.6s ease'}}>
 
         <h2>Kreaverse AI – Suno Pro</h2>
 
-        {/* API KEY */}
         <label>API Key</label>
         <input value={apiKey} onChange={e=>setApiKey(e.target.value)} style={inputStyle}/>
         <button style={buttonStyle} onClick={confirmApiKey}>Konfirmasi API Key</button>
@@ -170,7 +174,6 @@ export default function Dashboard() {
 
         <hr style={{margin:"20px 0"}}/>
 
-        {/* FILE */}
         <label>Upload Audio File</label>
         <input type="file" accept="audio/*"
           onChange={e=>setFile(e.target.files[0])}
@@ -183,25 +186,20 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* PROMPT */}
         <label>Lyrics / Prompt</label>
         <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} style={inputStyle}/>
 
-        {/* STYLE */}
         <label>Style</label>
         <input value={style} onChange={e=>setStyle(e.target.value)} style={inputStyle}/>
 
-        {/* TITLE */}
         <label>Title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={inputStyle}/>
 
-        {/* MODEL */}
+        {/* MODEL POPUP */}
         <label>Model</label>
         <div style={modelBox} onClick={()=>setShowModelPopup(true)}>
           {modelLabel}
-          {model === "V5_5" && (
-            <span style={badgeStyle}>Terbaru</span>
-          )}
+          {model === "V5_5" && <span style={badgeStyle}>Terbaru</span>}
         </div>
 
         {showModelPopup && (
@@ -219,21 +217,30 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* NEGATIVE TAGS */}
+        {/* VOCAL GENDER POPUP */}
+        <label>Vocal Gender</label>
+        <div style={modelBox} onClick={()=>setShowGenderPopup(true)}>
+          {genderLabel}
+        </div>
+
+        {showGenderPopup && (
+          <div style={modalOverlay} onClick={()=>setShowGenderPopup(false)}>
+            <div style={modalBox} onClick={(e)=>e.stopPropagation()}>
+              {["m","f"].map(g=>(
+                <div key={g}
+                  style={modalItem}
+                  onClick={()=>{setVocalGender(g);setShowGenderPopup(false)}}
+                >
+                  {g === "m" ? "Male" : "Female"}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <label>Negative Tags</label>
         <input value={negativeTags} onChange={e=>setNegativeTags(e.target.value)} style={inputStyle}/>
 
-        {/* VOCAL GENDER */}
-        <label>Vocal Gender</label>
-        <select value={vocalGender}
-          onChange={e=>setVocalGender(e.target.value)}
-          style={inputStyle}
-        >
-          <option value="m">Male</option>
-          <option value="f">Female</option>
-        </select>
-
-        {/* SLIDERS */}
         <Slider label="Style Weight" value={styleWeight} setValue={setStyleWeight}/>
         <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
         <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
@@ -292,6 +299,7 @@ function Spinner() {
   )
 }
 
+/* STYLES */
 const pageStyle = {
   minHeight:'100vh',
   background:'linear-gradient(135deg,#0f172a,#1e293b)',
