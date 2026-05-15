@@ -1,4 +1,3 @@
-
 import { validateApiKey } from '../secure-test'
 
 export default async function handler(req, res) {
@@ -21,8 +20,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ✅ Kirim request ke Kie AI Suno Cover
-    const response = await fetch('https://api.kie.ai/api/v1/suno/upload-and-cover-audio', {
+    // ✅ Endpoint KIE AI yang benar
+    const response = await fetch('https://api.kie.ai/suno-api/upload-and-cover-audio', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.KIE_API_KEY}`,
