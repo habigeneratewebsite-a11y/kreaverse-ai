@@ -7,7 +7,10 @@ export default function Dashboard() {
   const [credit, setCredit] = useState(null)
   const [popup, setPopup] = useState(null)
   const [popupType, setPopupType] = useState("info")
+
   const [file, setFile] = useState(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+
   const [prompt, setPrompt] = useState('')
   const [style, setStyle] = useState('')
   const [title, setTitle] = useState('')
@@ -19,6 +22,7 @@ export default function Dashboard() {
   const [styleWeight, setStyleWeight] = useState(0.5)
   const [weirdness, setWeirdness] = useState(0.5)
   const [audioWeight, setAudioWeight] = useState(0.5)
+
   const [loading, setLoading] = useState(false)
   const [showModelPopup, setShowModelPopup] = useState(false)
 
@@ -32,6 +36,10 @@ export default function Dashboard() {
       @keyframes fadeIn {
         from { opacity:0; transform:translateY(20px); }
         to { opacity:1; transform:translateY(0); }
+      }
+      @keyframes spin {
+        from { transform:rotate(0deg); }
+        to { transform:rotate(360deg); }
       }
     `
     document.head.appendChild(styleTag)
@@ -64,49 +72,82 @@ export default function Dashboard() {
     }
   }
 
+  async function uploadFileWithProgress() {
+
+    return new Promise((resolve, reject) => {
+
+      const xhr = new XMLHttpRequest()
+      const formData = new FormData()
+      formData.append("file", file)
+
+      xhr.open("POST","/api/upload",true)
+      xhr.setRequestHeader("x-api-key", apiKey)
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100)
+          setUploadProgress(percent)
+        }
+      }
+
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          resolve(JSON.parse(xhr.response))
+        } else {
+          reject("Upload gagal")
+        }
+      }
+
+      xhr.onerror = function() {
+        reject("Upload error")
+      }
+
+      xhr.send(formData)
+    })
+  }
+
   async function generateCover() {
 
     if(!connected) return showToast("Konfirmasi API Key dulu","error")
     if(!file) return showToast("Pilih file audio","error")
 
     setLoading(true)
+    setUploadProgress(0)
 
-    const formData = new FormData()
-    formData.append("file",file)
+    try {
 
-    const uploadRes = await fetch("/api/upload",{
-      method:"POST",
-      headers:{ "x-api-key": apiKey },
-      body:formData
-    })
+      const uploadData = await uploadFileWithProgress()
 
-    const uploadData = await uploadRes.json()
-
-    await fetch("/api/suno/cover",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "x-api-key":apiKey
-      },
-      body:JSON.stringify({
-        uploadUrl:uploadData.fileUrl,
-        prompt,
-        style,
-        title,
-        customMode,
-        instrumental,
-        model,
-        vocalGender,
-        negativeTags,
-        styleWeight,
-        weirdnessConstraint:weirdness,
-        audioWeight,
-        callBackUrl:"https://webhook.site/test123"
+      await fetch("/api/suno/cover",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key":apiKey
+        },
+        body:JSON.stringify({
+          uploadUrl:uploadData.fileUrl,
+          prompt,
+          style,
+          title,
+          customMode,
+          instrumental,
+          model,
+          vocalGender,
+          negativeTags,
+          styleWeight,
+          weirdnessConstraint:weirdness,
+          audioWeight,
+          callBackUrl:"https://webhook.site/test123"
+        })
       })
-    })
+
+      showToast("Task Created ✅","success")
+
+    } catch(err) {
+      showToast("Gagal upload","error")
+    }
 
     setLoading(false)
-    showToast("Task Created ✅","success")
   }
 
   const modelLabel = model === "V5_5"
@@ -120,16 +161,9 @@ export default function Dashboard() {
         <h2>Kreaverse AI – Suno Pro</h2>
 
         {/* API KEY */}
-        <label style={labelStyle}>API Key</label>
-        <input
-          value={apiKey}
-          onChange={e=>setApiKey(e.target.value)}
-          style={inputStyle}
-        />
-
-        <button style={buttonStyle} onClick={confirmApiKey}>
-          Konfirmasi API Key
-        </button>
+        <label>API Key</label>
+        <input value={apiKey} onChange={e=>setApiKey(e.target.value)} style={inputStyle}/>
+        <button style={buttonStyle} onClick={confirmApiKey}>Konfirmasi API Key</button>
 
         {connected && (
           <div style={connectedBox}>
@@ -139,25 +173,25 @@ export default function Dashboard() {
 
         <hr style={{margin:"20px 0"}}/>
 
-        {/* FILE UPLOAD */}
-        <label style={labelStyle}>Upload Audio File</label>
-        <input
-          type="file"
-          accept="audio/*"
+        {/* FILE */}
+        <label>Upload Audio File</label>
+        <input type="file" accept="audio/*"
           onChange={e=>setFile(e.target.files[0])}
           style={inputStyle}
         />
 
+        {uploadProgress > 0 && uploadProgress < 100 && (
+          <div style={progressBarOuter}>
+            <div style={{...progressBarInner,width:`${uploadProgress}%`}}/>
+          </div>
+        )}
+
         {/* PROMPT */}
-        <label style={labelStyle}>Prompt</label>
-        <textarea
-          value={prompt}
-          onChange={e=>setPrompt(e.target.value)}
-          style={inputStyle}
-        />
+        <label>Prompt</label>
+        <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} style={inputStyle}/>
 
         {/* MODEL */}
-        <label style={labelStyle}>Model</label>
+        <label>Model</label>
         <div style={modelBox} onClick={()=>setShowModelPopup(true)}>
           {modelLabel}
           {model === "V5_5" && (
@@ -180,13 +214,13 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* SLIDERS */}
+        {/* SLIDER */}
         <Slider label="Style Weight" value={styleWeight} setValue={setStyleWeight}/>
         <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
         <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
 
         <button style={buttonStyle} onClick={generateCover}>
-          {loading ? "Generating..." : "Generate Cover"}
+          {loading ? <Spinner/> : "Generate Cover"}
         </button>
 
       </div>
@@ -211,25 +245,31 @@ function Slider({label,value,setValue}) {
   return (
     <div style={{marginBottom:15}}>
       <label>{label}: {value}</label>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
+      <input type="range" min="0" max="1" step="0.01"
         value={value}
         onChange={e=>setValue(parseFloat(e.target.value))}
         style={{width:"100%"}}
       />
-      <input
-        type="number"
-        min="0"
-        max="1"
-        step="0.01"
+      <input type="number" min="0" max="1" step="0.01"
         value={value}
         onChange={e=>setValue(parseFloat(e.target.value))}
         style={inputStyle}
       />
     </div>
+  )
+}
+
+function Spinner() {
+  return (
+    <div style={{
+      width:20,
+      height:20,
+      border:"3px solid white",
+      borderTop:"3px solid transparent",
+      borderRadius:"50%",
+      animation:"spin 1s linear infinite",
+      margin:"0 auto"
+    }}/>
   )
 }
 
@@ -257,12 +297,6 @@ const inputStyle = {
   border:'1px solid #334155',
   background:'#0f172a',
   color:'white'
-}
-
-const labelStyle = {
-  fontSize:14,
-  marginBottom:5,
-  display:'block'
 }
 
 const buttonStyle = {
@@ -325,4 +359,18 @@ const modalItem = {
   padding:10,
   borderBottom:'1px solid #334155',
   cursor:'pointer'
+}
+
+const progressBarOuter = {
+  width:"100%",
+  height:8,
+  background:"#334155",
+  borderRadius:10,
+  marginBottom:15
+}
+
+const progressBarInner = {
+  height:8,
+  background:"#3b82f6",
+  borderRadius:10
 }
