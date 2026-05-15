@@ -1,64 +1,63 @@
-import { IncomingForm } from 'formidable'
+import formidable from 'formidable'
 import fs from 'fs'
-import { validateApiKey } from './secure-test'
 
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false }
 }
 
 export default async function handler(req, res) {
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" })
   }
 
-  const apiKey = req.headers['x-api-key']
-  const check = await validateApiKey(apiKey)
-
-  if (check.error) {
-    return res.status(401).json({ error: check.error })
-  }
-
-  const form = new IncomingForm()
+  const form = formidable({ multiples: false })
 
   form.parse(req, async (err, fields, files) => {
 
     if (err) {
-      return res.status(500).json({ error: 'File parse failed' })
+      return res.status(500).json({ error: "File parse failed" })
     }
 
-    const file = files.file?.[0]
+    const file = files.file
 
     if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' })
+      return res.status(400).json({ error: "No file uploaded" })
     }
 
     try {
-      const fileStream = fs.createReadStream(file.filepath)
 
       const formData = new FormData()
-      formData.append('file', fileStream, file.originalFilename)
+      formData.append(
+        "file",
+        fs.createReadStream(file.filepath),
+        file.originalFilename
+      )
 
-      const uploadRes = await fetch(
-        'https://kieai.redpandaai.co/api/file-stream-upload',
+      const response = await fetch(
+        "https://kieai.redpandaai.co/api/file-stream-upload",
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${process.env.KIE_API_KEY}`
+            "Authorization": `Bearer ${process.env.KIE_API_KEY}`
           },
           body: formData
         }
       )
 
-      const uploadData = await uploadRes.json()
+      const data = await response.json()
 
-      return res.status(200).json(uploadData.data)
+      if (!response.ok) {
+        return res.status(400).json(data)
+      }
+
+      return res.status(200).json({
+        fileUrl: data.data.fileUrl
+      })
 
     } catch (error) {
       return res.status(500).json({
-        error: 'Upload to Kie failed',
+        error: "Upload failed",
         detail: error.message
       })
     }
