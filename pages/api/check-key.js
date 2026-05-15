@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   try {
 
-    // ✅ CARI API KEY DI DATABASE SUPABASE
+    // ✅ Cek API key di database Supabase
     const { data, error } = await supabase
       .from("api_keys")
       .select("*")
@@ -56,9 +56,7 @@ export default async function handler(req, res) {
       })
     }
 
-    // ✅ CREDIT ASLI DARI DATABASE
-    // Jika kamu belum punya kolom credit,
-    // tambahkan nanti, sementara default 50
+    // ✅ Ambil credit asli dari database (bukan dummy)
     const credit = data.credit ?? 50
 
     return res.status(200).json({
