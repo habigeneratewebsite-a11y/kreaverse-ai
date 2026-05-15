@@ -1,4 +1,3 @@
-
 import { validateApiKey } from '../secure-test'
 
 export default async function handler(req, res) {
@@ -13,14 +12,14 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: check.error })
   }
 
-  const { prompt, image_url } = req.body
+  const { prompt } = req.body
 
-  if (!prompt || !image_url) {
-    return res.status(400).json({ error: 'prompt and image_url required' })
+  if (!prompt) {
+    return res.status(400).json({ error: 'prompt required' })
   }
 
   try {
-    const response = await fetch('https://api.x.ai/v1/images', {
+    const response = await fetch('https://api.x.ai/v1/images/generations', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
@@ -28,8 +27,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "grok-2-image",
-        prompt,
-        image_url
+        prompt: prompt,
+        size: "1024x1024"
       })
     })
 
@@ -38,6 +37,9 @@ export default async function handler(req, res) {
     return res.status(200).json(data)
 
   } catch (err) {
-    return res.status(500).json({ error: 'Grok request failed', detail: err.message })
+    return res.status(500).json({ 
+      error: 'Grok request failed', 
+      detail: err.message 
+    })
   }
 }
