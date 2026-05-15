@@ -6,6 +6,7 @@ export default function Dashboard() {
   const [apiKey, setApiKey] = useState("")
   const [connected, setConnected] = useState(false)
   const [credit, setCredit] = useState(null)
+  const [checkingKey, setCheckingKey] = useState(false)
 
   // ================= FORM =================
   const [file, setFile] = useState(null)
@@ -23,17 +24,15 @@ export default function Dashboard() {
   const [weirdness, setWeirdness] = useState(0.5)
   const [audioWeight, setAudioWeight] = useState(0.5)
 
-  // ================= GENERATE =================
-  const [loading, setLoading] = useState(false)
+  // ================= UI =================
   const [popup, setPopup] = useState(null)
   const [popupType, setPopupType] = useState("info")
-
   const [showModelPopup, setShowModelPopup] = useState(false)
   const [showGenderPopup, setShowGenderPopup] = useState(false)
 
   useEffect(() => {
-    const styleTag = document.createElement("style")
-    styleTag.innerHTML = `
+    const style = document.createElement("style")
+    style.innerHTML = `
       @keyframes glow {
         from { box-shadow: 0 0 5px #00f5ff; }
         to { box-shadow: 0 0 20px #3b82f6; }
@@ -47,7 +46,7 @@ export default function Dashboard() {
         to { transform:rotate(360deg); }
       }
     `
-    document.head.appendChild(styleTag)
+    document.head.appendChild(style)
   }, [])
 
   function toast(message,type="info"){
@@ -56,31 +55,54 @@ export default function Dashboard() {
     setTimeout(()=>setPopup(null),3000)
   }
 
+  // ✅ VALIDASI API KEY TANPA FALSE ERROR
   async function confirmApiKey(){
-    if(!apiKey) return toast("Masukkan API Key","error")
 
-    const res = await fetch("/api/check-key",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ apiKey })
-    })
-
-    const data = await res.json()
-
-    if(data.success){
-      setConnected(true)
-      setCredit(data.credit)
-      toast("API Key Terhubung ✅","success")
-    } else {
-      setConnected(false)
-      toast("API Key Salah ❌","error")
+    if(!apiKey){
+      toast("Masukkan API Key","error")
+      return
     }
+
+    setCheckingKey(true)
+
+    try{
+
+      const res = await fetch("/api/check-key",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ apiKey })
+      })
+
+      const data = await res.json()
+
+      if(res.ok && data.success){
+        setConnected(true)
+        setCredit(data.credit)
+        toast("API Key Terhubung ✅","success")
+      }else{
+        setConnected(false)
+        toast(data.message || "API Key Salah ❌","error")
+      }
+
+    }catch(error){
+      toast("Tidak dapat terhubung ke server","error")
+    }
+
+    setCheckingKey(false)
   }
 
+  // ✅ UPLOAD MANUAL BUTTON
   async function uploadOnly(){
 
-    if(!connected) return toast("Konfirmasi API Key dulu","error")
-    if(!file) return toast("Pilih file audio dulu","error")
+    if(!connected){
+      toast("Konfirmasi API Key dulu","error")
+      return
+    }
+
+    if(!file){
+      toast("Pilih file audio dulu","error")
+      return
+    }
 
     const xhr = new XMLHttpRequest()
     const formData = new FormData()
@@ -99,9 +121,13 @@ export default function Dashboard() {
     xhr.onload = ()=>{
       if(xhr.status===200){
         toast("Upload Berhasil ✅","success")
-      } else {
+      }else{
         toast("Upload Gagal ❌","error")
       }
+    }
+
+    xhr.onerror = ()=>{
+      toast("Upload Error ❌","error")
     }
 
     xhr.send(formData)
@@ -122,7 +148,9 @@ export default function Dashboard() {
         {/* API KEY */}
         <label>API Key</label>
         <input value={apiKey} onChange={e=>setApiKey(e.target.value)} style={inputStyle}/>
-        <button style={buttonStyle} onClick={confirmApiKey}>Konfirmasi API Key</button>
+        <button style={buttonStyle} onClick={confirmApiKey}>
+          {checkingKey ? <Spinner/> : "Konfirmasi API Key"}
+        </button>
 
         {connected && (
           <div style={connectedBox}>
@@ -138,6 +166,7 @@ export default function Dashboard() {
           onChange={e=>setFile(e.target.files[0])}
           style={inputStyle}
         />
+
         <button style={buttonStyleSecondary} onClick={uploadOnly}>
           Konfirmasi Upload
         </button>
@@ -148,7 +177,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* PROMPT */}
+        {/* LYRICS */}
         <label>Lyrics / Prompt</label>
         <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} style={inputStyle}/>
 
@@ -160,7 +189,7 @@ export default function Dashboard() {
         <label>Title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={inputStyle}/>
 
-        {/* MODEL */}
+        {/* MODEL POPUP */}
         <label>Model</label>
         <div style={modelBox} onClick={()=>setShowModelPopup(true)}>
           {modelLabel}
@@ -179,7 +208,7 @@ export default function Dashboard() {
           </Modal>
         )}
 
-        {/* VOCAL */}
+        {/* VOCAL GENDER POPUP */}
         <label>Vocal Gender</label>
         <div style={modelBox} onClick={()=>setShowGenderPopup(true)}>
           {genderLabel}
@@ -230,7 +259,8 @@ export default function Dashboard() {
   )
 }
 
-/* MODAL */
+/* COMPONENTS */
+
 function Modal({children,onClose}){
   return(
     <div style={modalOverlay} onClick={onClose}>
@@ -259,7 +289,22 @@ function Slider({label,value,setValue}){
   )
 }
 
+function Spinner(){
+  return(
+    <div style={{
+      width:20,
+      height:20,
+      border:"3px solid white",
+      borderTop:"3px solid transparent",
+      borderRadius:"50%",
+      animation:"spin 1s linear infinite",
+      margin:"0 auto"
+    }}/>
+  )
+}
+
 /* STYLES */
+
 const pageStyle={minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1e293b)",display:"flex",justifyContent:"center",alignItems:"center"}
 const cardStyle={width:500,background:"#1e293b",padding:25,borderRadius:15,color:"white"}
 const inputStyle={width:"100%",padding:10,marginBottom:12,borderRadius:6,border:"1px solid #334155",background:"#0f172a",color:"white"}
