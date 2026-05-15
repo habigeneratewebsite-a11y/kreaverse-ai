@@ -32,26 +32,28 @@ export default function Dashboard() {
 
   const [popup, setPopup] = useState(null)
   const [popupType, setPopupType] = useState("info")
+
   const [showModelPopup, setShowModelPopup] = useState(false)
   const [showGenderPopup, setShowGenderPopup] = useState(false)
 
   useEffect(()=>{
     const style=document.createElement("style")
     style.innerHTML=`
-      @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
       @keyframes glow{from{box-shadow:0 0 5px #00f5ff}to{box-shadow:0 0 20px #3b82f6}}
+      @keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+      @keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
     `
     document.head.appendChild(style)
   },[])
 
   function toast(msg,type="info"){
-    setPopup(msg)
-    setPopupType(type)
+    setPopup({msg,type})
     setTimeout(()=>setPopup(null),3000)
   }
 
-  // ✅ VALIDASI API KEY
   async function confirmApiKey(){
+
     if(!apiKey) return toast("Masukkan API Key","error")
 
     setCheckingKey(true)
@@ -76,32 +78,31 @@ export default function Dashboard() {
     setCheckingKey(false)
   }
 
-  // ✅ UPLOAD LANGSUNG KE KIE
   async function confirmUpload(){
 
     if(!connected) return toast("Konfirmasi API Key dulu","error")
     if(!file) return toast("Pilih file dulu","error")
 
-    const xhr = new XMLHttpRequest()
-    const formData = new FormData()
-    formData.append("file", file)
+    const xhr=new XMLHttpRequest()
+    const formData=new FormData()
+    formData.append("file",file)
 
-    const startTime = Date.now()
+    const start=Date.now()
 
     xhr.open("POST","https://kieai.redpandaai.co/api/file-stream-upload",true)
     xhr.setRequestHeader("Authorization",`Bearer ${apiKey}`)
 
-    xhr.upload.onprogress=(event)=>{
-      if(event.lengthComputable){
-        const percent=Math.round((event.loaded/event.total)*100)
+    xhr.upload.onprogress=(e)=>{
+      if(e.lengthComputable){
+        const percent=Math.round((e.loaded/e.total)*100)
         setUploadProgress(percent)
 
-        const elapsed=(Date.now()-startTime)/1000
-        const speed=(event.loaded/1024/elapsed).toFixed(1)
-        const eta=((event.total-event.loaded)/1024/(event.loaded/1024/elapsed)).toFixed(1)
+        const elapsed=(Date.now()-start)/1000
+        const speed=(e.loaded/1024/elapsed).toFixed(1)
+        const remaining=((e.total-e.loaded)/1024/(e.loaded/1024/elapsed)).toFixed(1)
 
         setUploadSpeed(speed)
-        setUploadETA(eta)
+        setUploadETA(remaining)
       }
     }
 
@@ -118,49 +119,16 @@ export default function Dashboard() {
     xhr.send(formData)
   }
 
-  // ✅ GENERATE COVER
-  async function confirmGenerate(){
-
-    if(!fileUrl) return toast("Upload file dulu","error")
-    if(!prompt) return toast("Masukkan prompt","error")
-
-    setLoadingGenerate(true)
-
-    await fetch("/api/suno/cover",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "x-api-key":apiKey
-      },
-      body:JSON.stringify({
-        uploadUrl:fileUrl,
-        prompt,
-        style,
-        title,
-        customMode,
-        instrumental,
-        model,
-        vocalGender,
-        negativeTags,
-        styleWeight,
-        weirdnessConstraint:weirdness,
-        audioWeight,
-        callBackUrl:"https://webhook.site/test123"
-      })
-    })
-
-    toast("Generate Task Created ✅","success")
-    setLoadingGenerate(false)
-  }
-
   const modelLabel=model==="V5_5"?"Kreaverse AI V5.5":model.replace("_",".")
+  const genderLabel=vocalGender==="m"?"Male":"Female"
 
   return(
     <div style={pageStyle}>
-      <div style={cardStyle}>
+      <div style={{...cardStyle,animation:"fadeIn .6s ease"}}>
 
         <h2>Kreaverse AI – Suno Pro</h2>
 
+        {/* API KEY */}
         <label>API Key</label>
         <input value={apiKey} onChange={e=>setApiKey(e.target.value)} style={inputStyle}/>
         <button style={buttonStyle} onClick={confirmApiKey}>
@@ -175,15 +143,10 @@ export default function Dashboard() {
 
         <hr style={{margin:"20px 0"}}/>
 
+        {/* FILE */}
         <label>Upload Audio File</label>
-        <input type="file" accept="audio/*"
-          onChange={e=>setFile(e.target.files[0])}
-          style={inputStyle}
-        />
-
-        <button style={buttonStyleSecondary} onClick={confirmUpload}>
-          Konfirmasi Upload
-        </button>
+        <input type="file" accept="audio/*" onChange={e=>setFile(e.target.files[0])} style={inputStyle}/>
+        <button style={buttonStyleSecondary} onClick={confirmUpload}>Konfirmasi Upload</button>
 
         {uploadProgress>0&&(
           <>
@@ -191,35 +154,56 @@ export default function Dashboard() {
               <div style={{...progressInner,width:`${uploadProgress}%`}}/>
             </div>
             <div style={{fontSize:12}}>
-              Speed: {uploadSpeed} KB/s | ETA: {uploadETA}s
+              Speed: {uploadSpeed} KB/s | ETA: {uploadETA}s | WIB: {new Date().toLocaleTimeString("id-ID")}
             </div>
           </>
         )}
 
-        <hr style={{margin:"20px 0"}}/>
+        {/* MODEL POPUP */}
+        <label>Model</label>
+        <div style={modelBox} onClick={()=>setShowModelPopup(true)}>
+          {modelLabel}
+          {model==="V5_5"&&<span style={badgeStyle}>Terbaru</span>}
+        </div>
 
+        {showModelPopup&&(
+          <Modal onClose={()=>setShowModelPopup(false)}>
+            {["V5_5","V5","V4_5PLUS","V4_5","V4"].map(m=>(
+              <div key={m} style={modalItem}
+                onClick={()=>{setModel(m);setShowModelPopup(false)}}
+              >
+                {m==="V5_5"?"Kreaverse AI V5.5":m.replace("_",".")}
+              </div>
+            ))}
+          </Modal>
+        )}
+
+        {/* VOCAL POPUP */}
+        <label>Vocal Gender</label>
+        <div style={modelBox} onClick={()=>setShowGenderPopup(true)}>
+          {genderLabel}
+        </div>
+
+        {showGenderPopup&&(
+          <Modal onClose={()=>setShowGenderPopup(false)}>
+            <div style={modalItem} onClick={()=>{setVocalGender("m");setShowGenderPopup(false)}}>Male</div>
+            <div style={modalItem} onClick={()=>{setVocalGender("f");setShowGenderPopup(false)}}>Female</div>
+          </Modal>
+        )}
+
+        {/* SUNO PARAMETER */}
         <label>Lyrics / Prompt</label>
         <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} style={inputStyle}/>
-
         <label>Style</label>
         <input value={style} onChange={e=>setStyle(e.target.value)} style={inputStyle}/>
-
         <label>Title</label>
         <input value={title} onChange={e=>setTitle(e.target.value)} style={inputStyle}/>
-
-        <label>Model</label>
-        <div style={modelBox}>{modelLabel}</div>
-
-        <label>Vocal Gender</label>
-        <div style={modelBox}>{vocalGender==="m"?"Male":"Female"}</div>
-
         <label>Negative Tags</label>
         <input value={negativeTags} onChange={e=>setNegativeTags(e.target.value)} style={inputStyle}/>
 
         <label>
           <input type="checkbox" checked={customMode} onChange={()=>setCustomMode(!customMode)}/> Custom Mode
         </label>
-
         <label>
           <input type="checkbox" checked={instrumental} onChange={()=>setInstrumental(!instrumental)}/> Instrumental
         </label>
@@ -228,24 +212,32 @@ export default function Dashboard() {
         <Slider label="Weirdness Constraint" value={weirdness} setValue={setWeirdness}/>
         <Slider label="Audio Weight" value={audioWeight} setValue={setAudioWeight}/>
 
-        <button style={buttonStyle} onClick={confirmGenerate}>
-          {loadingGenerate?<Spinner/>:"Generate Cover"}
-        </button>
-
       </div>
 
       {popup&&(
         <div style={{
           position:"fixed",
           bottom:20,
-          background:popupType==="success"?"#16a34a":"#dc2626",
+          right:20,
+          background:popup.type==="success"?"#16a34a":"#dc2626",
           color:"white",
-          padding:"12px 20px",
-          borderRadius:12
+          padding:"14px 22px",
+          borderRadius:12,
+          animation:"slideUp .4s ease"
         }}>
-          {popup}
+          {popup.msg}
         </div>
       )}
+    </div>
+  )
+}
+
+function Modal({children,onClose}){
+  return(
+    <div style={modalOverlay} onClick={onClose}>
+      <div style={modalBox} onClick={e=>e.stopPropagation()}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -282,12 +274,17 @@ function Spinner(){
   )
 }
 
+/* STYLES */
 const pageStyle={minHeight:"100vh",background:"linear-gradient(135deg,#0f172a,#1e293b)",display:"flex",justifyContent:"center",alignItems:"center"}
 const cardStyle={width:500,background:"#1e293b",padding:25,borderRadius:15,color:"white"}
 const inputStyle={width:"100%",padding:10,marginBottom:12,borderRadius:6,border:"1px solid #334155",background:"#0f172a",color:"white"}
 const buttonStyle={width:"100%",padding:12,borderRadius:6,border:"none",background:"#3b82f6",color:"white"}
 const buttonStyleSecondary={width:"100%",padding:12,borderRadius:6,border:"none",background:"#475569",color:"white",marginBottom:10}
 const connectedBox={marginTop:10,padding:10,background:"#065f46",borderRadius:6}
-const modelBox={padding:10,borderRadius:8,background:"#0f172a",border:"1px solid #334155",marginBottom:15}
+const modelBox={padding:10,borderRadius:8,background:"#0f172a",border:"1px solid #334155",marginBottom:15,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}
+const badgeStyle={marginLeft:10,padding:"2px 8px",fontSize:10,background:"linear-gradient(90deg,#00f5ff,#3b82f6)",borderRadius:20,animation:"glow 1.5s ease-in-out infinite alternate"}
+const modalOverlay={position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",display:"flex",justifyContent:"center",alignItems:"center"}
+const modalBox={background:"#1e293b",padding:20,borderRadius:12,width:300}
+const modalItem={padding:12,borderBottom:"1px solid #334155",cursor:"pointer"}
 const progressOuter={width:"100%",height:8,background:"#334155",borderRadius:10,marginBottom:8}
 const progressInner={height:8,background:"#3b82f6",borderRadius:10}
